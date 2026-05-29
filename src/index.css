@@ -377,3 +377,94 @@ body {
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Translate Panel ── */
+.translate-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.translate-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+}
+.translate-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+.lang-selector-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 160px;
+}
+.lang-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text3);
+  pointer-events: none;
+}
+.lang-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px 8px 30px;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lang-select:focus { border-color: var(--accent); }
+.lang-select option { background: var(--bg2); }
+.translate-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.translate-btn:hover:not(:disabled) { opacity: 0.85; }
+.translate-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.translate-btn.loading { opacity: 0.7; }
+.translate-err {
+  color: var(--error);
+  font-size: 13px;
+  padding: 0 18px 14px;
+}
+.translated-result { border-top: 1px solid var(--border); }
+.translated-badge {
+  display: inline-flex;
+  align-items: center;
+  margin: 12px 18px 0;
+  background: rgba(108,123,255,0.12);
+  color: var(--accent2);
+  border: 1px solid rgba(108,123,255,0.25);
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 10px;
+}
