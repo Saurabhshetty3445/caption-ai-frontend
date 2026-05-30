@@ -22,6 +22,11 @@ function formatFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+function formatElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s/60)}m ${s%60}s`;
+}
 function downloadFile(content, filename, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -49,59 +54,38 @@ function TranslatePanel({ result }) {
   const baseName = result.filename.replace(/\.[^.]+$/, "");
 
   const handleTranslate = async () => {
-    setTranslating(true);
-    setTranslateErr("");
-    setTranslated(null);
+    setTranslating(true); setTranslateErr(""); setTranslated(null);
     try {
       const res = await fetch(`${API_BASE}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          srt: result.srt_captions,
-          transcript: result.transcript,
-          target_language: targetLang,
-        }),
+        body: JSON.stringify({ srt: result.srt_captions, transcript: result.transcript, target_language: targetLang }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Translation failed");
-      }
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Translation failed"); }
       const data = await res.json();
-      setTranslated(data);
-      setTransTab("transcript");
-    } catch (e) {
-      setTranslateErr(e.message);
-    } finally {
-      setTranslating(false);
-    }
+      setTranslated(data); setTransTab("transcript");
+    } catch (e) { setTranslateErr(e.message); }
+    finally { setTranslating(false); }
   };
-
-  const sourceLang = result.language?.toLowerCase();
 
   return (
     <div className="translate-panel">
-      <div className="translate-header">
-        <Languages size={15} />
-        <span>Translate Captions</span>
-      </div>
+      <div className="translate-header"><Languages size={15} /><span>Translate Captions</span></div>
       <div className="translate-controls">
         <div className="lang-selector-wrap">
           <Globe size={13} className="lang-icon" />
           <select className="lang-select" value={targetLang}
             onChange={e => { setTargetLang(e.target.value); setTranslated(null); }}>
             {Object.entries(LANGUAGES).map(([code, name]) => (
-              <option key={code} value={code} disabled={code === sourceLang}>
-                {name}{code === sourceLang ? " (source)" : ""}
+              <option key={code} value={code} disabled={code === result.language?.toLowerCase()}>
+                {name}{code === result.language?.toLowerCase() ? " (source)" : ""}
               </option>
             ))}
           </select>
         </div>
         <button className={`translate-btn ${translating ? "loading" : ""}`}
-          onClick={handleTranslate}
-          disabled={translating || targetLang === sourceLang}>
-          {translating
-            ? <><Loader2 size={14} className="spin" />Translating…</>
-            : <><Languages size={14} />Translate</>}
+          onClick={handleTranslate} disabled={translating || targetLang === result.language?.toLowerCase()}>
+          {translating ? <><Loader2 size={14} className="spin" />Translating…</> : <><Languages size={14} />Translate</>}
         </button>
       </div>
       {translateErr && <p className="translate-err">{translateErr}</p>}
@@ -109,8 +93,8 @@ function TranslatePanel({ result }) {
         <div className="translated-result">
           <div className="translated-badge">Translated to {translated.target_language_name}</div>
           <div className="tab-row">
-            {["transcript", "captions"].map(t => (
-              <button key={t} className={`tab ${transTab === t ? "active" : ""}`} onClick={() => setTransTab(t)}>
+            {["transcript","captions"].map(t => (
+              <button key={t} className={`tab ${transTab===t?"active":""}`} onClick={() => setTransTab(t)}>
                 {t === "transcript" ? "Transcript" : "SRT Captions"}
               </button>
             ))}
@@ -119,9 +103,7 @@ function TranslatePanel({ result }) {
             <div className="content-box">
               <div className="content-actions">
                 <CopyButton text={translated.translated_transcript} />
-                <button className="icon-btn"
-                  onClick={() => downloadFile(translated.translated_transcript, `${baseName}_${targetLang}.txt`, "text/plain")}
-                  title="Download TXT"><Download size={15} /></button>
+                <button className="icon-btn" onClick={() => downloadFile(translated.translated_transcript, `${baseName}_${targetLang}.txt`, "text/plain")} title="Download"><Download size={15} /></button>
               </div>
               <p className="transcript-text">{translated.translated_transcript}</p>
             </div>
@@ -130,9 +112,7 @@ function TranslatePanel({ result }) {
             <div className="content-box">
               <div className="content-actions">
                 <CopyButton text={translated.translated_srt} />
-                <button className="icon-btn"
-                  onClick={() => downloadFile(translated.translated_srt, `${baseName}_${targetLang}.srt`, "text/plain")}
-                  title="Download SRT"><Download size={15} /></button>
+                <button className="icon-btn" onClick={() => downloadFile(translated.translated_srt, `${baseName}_${targetLang}.srt`, "text/plain")} title="Download"><Download size={15} /></button>
               </div>
               <pre className="srt-text">{translated.translated_srt}</pre>
             </div>
@@ -143,7 +123,7 @@ function TranslatePanel({ result }) {
   );
 }
 
-function ResultPanel({ result }) {
+function ResultPanel({ result, elapsed }) {
   const [tab, setTab] = useState("transcript");
   const baseName = result.filename.replace(/\.[^.]+$/, "");
   return (
@@ -153,13 +133,14 @@ function ResultPanel({ result }) {
           <div className="result-meta">
             <span className="meta-chip"><Globe size={13} />{result.language?.toUpperCase()}</span>
             <span className="meta-chip"><Clock size={13} />{formatDuration(result.duration_seconds)}</span>
+            {elapsed && <span className="meta-chip">⚡ {formatElapsed(elapsed)}</span>}
             <span className="filename-chip">{result.filename}</span>
           </div>
           <span className="status-badge">✓ Done</span>
         </div>
         <div className="tab-row">
-          {["transcript", "captions"].map(t => (
-            <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
+          {["transcript","captions"].map(t => (
+            <button key={t} className={`tab ${tab===t?"active":""}`} onClick={() => setTab(t)}>
               {t === "transcript" ? "Transcript" : "SRT Captions"}
             </button>
           ))}
@@ -168,9 +149,7 @@ function ResultPanel({ result }) {
           <div className="content-box">
             <div className="content-actions">
               <CopyButton text={result.transcript} />
-              <button className="icon-btn"
-                onClick={() => downloadFile(result.transcript, `${baseName}.txt`, "text/plain")}
-                title="Download TXT"><Download size={15} /></button>
+              <button className="icon-btn" onClick={() => downloadFile(result.transcript, `${baseName}.txt`, "text/plain")} title="Download"><Download size={15} /></button>
             </div>
             <p className="transcript-text">{result.transcript}</p>
           </div>
@@ -179,9 +158,7 @@ function ResultPanel({ result }) {
           <div className="content-box">
             <div className="content-actions">
               <CopyButton text={result.srt_captions} />
-              <button className="icon-btn"
-                onClick={() => downloadFile(result.srt_captions, `${baseName}.srt`, "text/plain")}
-                title="Download SRT"><Download size={15} /></button>
+              <button className="icon-btn" onClick={() => downloadFile(result.srt_captions, `${baseName}.srt`, "text/plain")} title="Download"><Download size={15} /></button>
             </div>
             <pre className="srt-text">{result.srt_captions}</pre>
           </div>
@@ -198,8 +175,8 @@ function HistoryPanel({ jobs, onSelect }) {
   return (
     <div className="history-panel">
       <button className="history-toggle" onClick={() => setOpen(!open)}>
-        <History size={15} /><span>Recent jobs ({jobs.length})</span>
-        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        <History size={15} /><span>Recent ({jobs.length})</span>
+        {open ? <ChevronDown size={14} /> : <ChevronDown size={14} />}
       </button>
       {open && (
         <div className="history-list">
@@ -215,18 +192,34 @@ function HistoryPanel({ jobs, onSelect }) {
   );
 }
 
+// Animated dots for processing label
+function ProcessingLabel({ elapsed }) {
+  const msgs = [
+    "Uploading file…",
+    "Extracting audio…",
+    "Detecting language…",
+    "Transcribing speech…",
+    "Generating captions…",
+    "Almost done…",
+  ];
+  const idx = Math.min(Math.floor(elapsed / 15000), msgs.length - 1);
+  return <p className="proc-title">{msgs[idx]}</p>;
+}
+
 export default function App() {
   const [dragging, setDragging]   = useState(false);
   const [file, setFile]           = useState(null);
   const [status, setStatus]       = useState("idle");
-  const [progress, setProgress]   = useState(0);
+  const [elapsed, setElapsed]     = useState(0);
   const [result, setResult]       = useState(null);
+  const [resultElapsed, setResultElapsed] = useState(null);
   const [error, setError]         = useState("");
   const [history, setHistory]     = useState([]);
-  const [apiOk, setApiOk]         = useState(null); // null=checking, true=ok, false=down
-  const inputRef = useRef();
+  const [apiOk, setApiOk]         = useState(null);
+  const inputRef  = useRef();
+  const startRef  = useRef(null);
+  const timerRef  = useRef(null);
 
-  // Check API connectivity on load
   useEffect(() => {
     if (!API_BASE) { setApiOk(false); return; }
     fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(10000) })
@@ -235,29 +228,37 @@ export default function App() {
       .catch(() => setApiOk(false));
   }, []);
 
+  const startTimer = () => {
+    startRef.current = Date.now();
+    timerRef.current = setInterval(() => {
+      setElapsed(Date.now() - startRef.current);
+    }, 500);
+  };
+  const stopTimer = () => {
+    clearInterval(timerRef.current);
+    return Date.now() - (startRef.current || Date.now());
+  };
+
   const processFile = useCallback(async (f) => {
-    setFile(f); setStatus("uploading"); setProgress(0); setError(""); setResult(null);
-    const ticker = setInterval(() => {
-      setProgress(p => p < 88 ? p + Math.random() * 3 : p);
-    }, 800);
+    setFile(f); setStatus("uploading"); setElapsed(0); setError(""); setResult(null);
+    startTimer();
     try {
       const form = new FormData();
       form.append("file", f);
-      const res = await fetch(`${API_BASE}/transcribe`, {
-        method: "POST",
-        body: form,
-      });
-      clearInterval(ticker);
+      const res = await fetch(`${API_BASE}/transcribe`, { method: "POST", body: form });
+      const took = stopTimer();
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
         throw new Error(err.detail || "Server error");
       }
       const data = await res.json();
-      setProgress(100); setResult(data); setStatus("done");
+      setResultElapsed(took);
+      setResult(data);
+      setStatus("done");
       setHistory(h => [data, ...h.filter(j => j.job_id !== data.job_id)].slice(0, 10));
     } catch (e) {
-      clearInterval(ticker);
-      setError(e.message || "Upload failed. Check your connection.");
+      stopTimer();
+      setError(e.message || "Upload failed.");
       setStatus("error");
     }
   }, []);
@@ -267,32 +268,31 @@ export default function App() {
     const f = e.dataTransfer.files[0]; if (f) processFile(f);
   }, [processFile]);
 
-  const reset = () => { setStatus("idle"); setFile(null); setResult(null); setError(""); setProgress(0); };
+  const reset = () => {
+    setStatus("idle"); setFile(null); setResult(null);
+    setError(""); setElapsed(0); setResultElapsed(null);
+  };
+
+  // Real-time elapsed as MM:SS
+  const elapsedSec = Math.floor(elapsed / 1000);
+  const elapsedStr = elapsedSec < 60 ? `${elapsedSec}s` : `${Math.floor(elapsedSec/60)}m ${elapsedSec%60}s`;
 
   return (
     <div className="app">
       <header className="header">
         <div className="logo"><Zap size={20} /><span>CaptionAI</span></div>
-        <p className="tagline">Whisper transcription · Gemini translation · SRT captions</p>
-
-        {/* API status indicator */}
+        <p className="tagline">Whisper transcription · any language · Gemini translation</p>
         {apiOk === false && (
-          <div className="api-warning">
-            <AlertCircle size={14} />
-            <span>Backend unreachable — check your API URL in Vercel settings</span>
-          </div>
+          <div className="api-warning"><AlertCircle size={14} /><span>Backend unreachable — check VITE_API_URL in Vercel</span></div>
         )}
         {apiOk === true && (
-          <div className="api-ok">
-            <span className="api-dot" />
-            <span>Backend connected</span>
-          </div>
+          <div className="api-ok"><span className="api-dot" /><span>Backend connected</span></div>
         )}
       </header>
 
       <main className="main">
         {status === "idle" && (
-          <div className={`dropzone ${dragging ? "dragging" : ""}`}
+          <div className={`dropzone ${dragging?"dragging":""}`}
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
@@ -302,19 +302,21 @@ export default function App() {
               onChange={e => { const f = e.target.files[0]; if (f) processFile(f); }} />
             <div className="dz-icon"><Upload size={32} /></div>
             <p className="dz-title">Drop your video or audio file</p>
-            <p className="dz-sub">MP4 · MOV · MKV · WebM · MP3 · WAV · M4A · Any language</p>
+            <p className="dz-sub">MP4 · MOV · MKV · WebM · MP3 · WAV — Any language</p>
             <button className="dz-btn">Choose file</button>
           </div>
         )}
 
         {status === "uploading" && (
           <div className="processing-card">
-            <div className="proc-icon"><Loader2 size={28} className="spin" /></div>
-            <p className="proc-title">Transcribing with Whisper…</p>
-            <p className="proc-sub">This may take 2–5 minutes for long videos</p>
-            <p className="proc-file"><FileVideo size={14} />{file.name} · {formatFileSize(file.size)}</p>
-            <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
-            <p className="proc-pct">{Math.round(progress)}%</p>
+            <div className="proc-spinner"><Loader2 size={36} className="spin" /></div>
+            <ProcessingLabel elapsed={elapsed} />
+            <p className="proc-file"><FileVideo size={13} />{file?.name} · {file ? formatFileSize(file.size) : ""}</p>
+            <div className="proc-elapsed">{elapsedStr}</div>
+            <div className="proc-wave">
+              <span /><span /><span /><span /><span />
+            </div>
+            <p className="proc-hint">Processing on CPU — typically 30–120s per minute of audio</p>
           </div>
         )}
 
@@ -328,17 +330,15 @@ export default function App() {
 
         {status === "done" && result && (
           <>
-            <ResultPanel result={result} />
+            <ResultPanel result={result} elapsed={resultElapsed} />
             <button className="new-btn" onClick={reset}><Upload size={14} />Transcribe another file</button>
           </>
         )}
 
-        <HistoryPanel jobs={history} onSelect={j => { setResult(j); setStatus("done"); }} />
+        <HistoryPanel jobs={history} onSelect={j => { setResult(j); setResultElapsed(null); setStatus("done"); }} />
       </main>
 
-      <footer className="footer">
-        Powered by faster-whisper · Gemini · Supabase
-      </footer>
+      <footer className="footer">Powered by faster-whisper · Gemini · Supabase</footer>
     </div>
   );
 }
