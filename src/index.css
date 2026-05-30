@@ -468,3 +468,43 @@ body {
   font-size: 12px;
   padding: 3px 10px;
 }
+
+/* ── API status ── */
+.api-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,95,95,0.1);
+  border: 1px solid rgba(255,95,95,0.25);
+  border-radius: 999px;
+  color: var(--error);
+  font-size: 12px;
+  padding: 6px 14px;
+  margin: 12px auto 0;
+  width: fit-content;
+}
+.api-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+  font-size: 12px;
+  margin: 8px auto 0;
+  width: fit-content;
+}
+.api-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.proc-sub {
+  color: var(--text3);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
