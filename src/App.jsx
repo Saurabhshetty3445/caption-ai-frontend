@@ -1,15 +1,15 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Upload, FileVideo, Loader2, CheckCircle2, Copy, Download,
-         Clock, Globe, ChevronDown, ChevronUp, History, Zap, Languages } from "lucide-react";
+         Clock, Globe, ChevronDown, ChevronUp, History, Zap, Languages, AlertCircle } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const LANGUAGES = {
-  en: "English",   hi: "Hindi",    es: "Spanish",  fr: "French",
-  de: "German",    ja: "Japanese", ko: "Korean",   zh: "Chinese",
-  ar: "Arabic",    pt: "Portuguese", ru: "Russian", it: "Italian",
-  bn: "Bengali",   ur: "Urdu",     ta: "Tamil",    te: "Telugu",
-  mr: "Marathi",   gu: "Gujarati", pa: "Punjabi",  ml: "Malayalam",
+  en: "English",   hi: "Hindi",      es: "Spanish",  fr: "French",
+  de: "German",    ja: "Japanese",   ko: "Korean",   zh: "Chinese",
+  ar: "Arabic",    pt: "Portuguese", ru: "Russian",  it: "Italian",
+  bn: "Bengali",   ur: "Urdu",       ta: "Tamil",    te: "Telugu",
+  mr: "Marathi",   gu: "Gujarati",   pa: "Punjabi",  ml: "Malayalam",
 };
 
 function formatDuration(secs) {
@@ -40,7 +40,6 @@ function CopyButton({ text }) {
   );
 }
 
-// ── Translation panel ─────────────────────────────────────────
 function TranslatePanel({ result }) {
   const [targetLang, setTargetLang]     = useState("en");
   const [translating, setTranslating]   = useState(false);
@@ -77,7 +76,6 @@ function TranslatePanel({ result }) {
     }
   };
 
-  // Don't show translate option for same language
   const sourceLang = result.language?.toLowerCase();
 
   return (
@@ -86,53 +84,37 @@ function TranslatePanel({ result }) {
         <Languages size={15} />
         <span>Translate Captions</span>
       </div>
-
       <div className="translate-controls">
         <div className="lang-selector-wrap">
           <Globe size={13} className="lang-icon" />
-          <select
-            className="lang-select"
-            value={targetLang}
-            onChange={e => { setTargetLang(e.target.value); setTranslated(null); }}
-          >
+          <select className="lang-select" value={targetLang}
+            onChange={e => { setTargetLang(e.target.value); setTranslated(null); }}>
             {Object.entries(LANGUAGES).map(([code, name]) => (
-              <option key={code} value={code}
-                disabled={code === sourceLang}>
+              <option key={code} value={code} disabled={code === sourceLang}>
                 {name}{code === sourceLang ? " (source)" : ""}
               </option>
             ))}
           </select>
         </div>
-        <button
-          className={`translate-btn ${translating ? "loading" : ""}`}
+        <button className={`translate-btn ${translating ? "loading" : ""}`}
           onClick={handleTranslate}
-          disabled={translating || targetLang === sourceLang}
-        >
+          disabled={translating || targetLang === sourceLang}>
           {translating
             ? <><Loader2 size={14} className="spin" />Translating…</>
             : <><Languages size={14} />Translate</>}
         </button>
       </div>
-
-      {translateErr && (
-        <p className="translate-err">{translateErr}</p>
-      )}
-
+      {translateErr && <p className="translate-err">{translateErr}</p>}
       {translated && (
         <div className="translated-result">
-          <div className="translated-badge">
-            Translated to {translated.target_language_name}
-          </div>
-
+          <div className="translated-badge">Translated to {translated.target_language_name}</div>
           <div className="tab-row">
             {["transcript", "captions"].map(t => (
-              <button key={t} className={`tab ${transTab === t ? "active" : ""}`}
-                onClick={() => setTransTab(t)}>
+              <button key={t} className={`tab ${transTab === t ? "active" : ""}`} onClick={() => setTransTab(t)}>
                 {t === "transcript" ? "Transcript" : "SRT Captions"}
               </button>
             ))}
           </div>
-
           {transTab === "transcript" && (
             <div className="content-box">
               <div className="content-actions">
@@ -161,11 +143,9 @@ function TranslatePanel({ result }) {
   );
 }
 
-// ── Result panel ──────────────────────────────────────────────
 function ResultPanel({ result }) {
   const [tab, setTab] = useState("transcript");
   const baseName = result.filename.replace(/\.[^.]+$/, "");
-
   return (
     <>
       <div className="result-card">
@@ -177,7 +157,6 @@ function ResultPanel({ result }) {
           </div>
           <span className="status-badge">✓ Done</span>
         </div>
-
         <div className="tab-row">
           {["transcript", "captions"].map(t => (
             <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
@@ -185,7 +164,6 @@ function ResultPanel({ result }) {
             </button>
           ))}
         </div>
-
         {tab === "transcript" && (
           <div className="content-box">
             <div className="content-actions">
@@ -209,13 +187,11 @@ function ResultPanel({ result }) {
           </div>
         )}
       </div>
-
       <TranslatePanel result={result} />
     </>
   );
 }
 
-// ── History ───────────────────────────────────────────────────
 function HistoryPanel({ jobs, onSelect }) {
   const [open, setOpen] = useState(false);
   if (!jobs.length) return null;
@@ -239,33 +215,50 @@ function HistoryPanel({ jobs, onSelect }) {
   );
 }
 
-// ── Main App ──────────────────────────────────────────────────
 export default function App() {
-  const [dragging, setDragging] = useState(false);
-  const [file, setFile]         = useState(null);
-  const [status, setStatus]     = useState("idle");
-  const [progress, setProgress] = useState(0);
-  const [result, setResult]     = useState(null);
-  const [error, setError]       = useState("");
-  const [history, setHistory]   = useState([]);
+  const [dragging, setDragging]   = useState(false);
+  const [file, setFile]           = useState(null);
+  const [status, setStatus]       = useState("idle");
+  const [progress, setProgress]   = useState(0);
+  const [result, setResult]       = useState(null);
+  const [error, setError]         = useState("");
+  const [history, setHistory]     = useState([]);
+  const [apiOk, setApiOk]         = useState(null); // null=checking, true=ok, false=down
   const inputRef = useRef();
+
+  // Check API connectivity on load
+  useEffect(() => {
+    if (!API_BASE) { setApiOk(false); return; }
+    fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(10000) })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(() => setApiOk(true))
+      .catch(() => setApiOk(false));
+  }, []);
 
   const processFile = useCallback(async (f) => {
     setFile(f); setStatus("uploading"); setProgress(0); setError(""); setResult(null);
     const ticker = setInterval(() => {
-      setProgress(p => p < 88 ? p + Math.random() * 4 : p);
-    }, 600);
+      setProgress(p => p < 88 ? p + Math.random() * 3 : p);
+    }, 800);
     try {
       const form = new FormData();
       form.append("file", f);
-      const res = await fetch(`${API_BASE}/transcribe`, { method: "POST", body: form });
+      const res = await fetch(`${API_BASE}/transcribe`, {
+        method: "POST",
+        body: form,
+      });
       clearInterval(ticker);
-      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || "Server error"); }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || "Server error");
+      }
       const data = await res.json();
       setProgress(100); setResult(data); setStatus("done");
       setHistory(h => [data, ...h.filter(j => j.job_id !== data.job_id)].slice(0, 10));
     } catch (e) {
-      clearInterval(ticker); setError(e.message); setStatus("error");
+      clearInterval(ticker);
+      setError(e.message || "Upload failed. Check your connection.");
+      setStatus("error");
     }
   }, []);
 
@@ -281,6 +274,20 @@ export default function App() {
       <header className="header">
         <div className="logo"><Zap size={20} /><span>CaptionAI</span></div>
         <p className="tagline">Whisper transcription · Gemini translation · SRT captions</p>
+
+        {/* API status indicator */}
+        {apiOk === false && (
+          <div className="api-warning">
+            <AlertCircle size={14} />
+            <span>Backend unreachable — check your API URL in Vercel settings</span>
+          </div>
+        )}
+        {apiOk === true && (
+          <div className="api-ok">
+            <span className="api-dot" />
+            <span>Backend connected</span>
+          </div>
+        )}
       </header>
 
       <main className="main">
@@ -290,10 +297,12 @@ export default function App() {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             onClick={() => inputRef.current.click()}>
-            <input ref={inputRef} type="file" hidden accept="video/*,audio/*" onChange={e => { const f = e.target.files[0]; if (f) processFile(f); }} />
+            <input ref={inputRef} type="file" hidden
+              accept="video/*,audio/*,.mp4,.mov,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg"
+              onChange={e => { const f = e.target.files[0]; if (f) processFile(f); }} />
             <div className="dz-icon"><Upload size={32} /></div>
             <p className="dz-title">Drop your video or audio file</p>
-            <p className="dz-sub">MP4 · MOV · MKV · WebM · MP3 · WAV · M4A</p>
+            <p className="dz-sub">MP4 · MOV · MKV · WebM · MP3 · WAV · M4A · Any language</p>
             <button className="dz-btn">Choose file</button>
           </div>
         )}
@@ -302,6 +311,7 @@ export default function App() {
           <div className="processing-card">
             <div className="proc-icon"><Loader2 size={28} className="spin" /></div>
             <p className="proc-title">Transcribing with Whisper…</p>
+            <p className="proc-sub">This may take 2–5 minutes for long videos</p>
             <p className="proc-file"><FileVideo size={14} />{file.name} · {formatFileSize(file.size)}</p>
             <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
             <p className="proc-pct">{Math.round(progress)}%</p>
